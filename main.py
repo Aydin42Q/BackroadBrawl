@@ -3,65 +3,105 @@ from tkinter import ttk
 import random
 
 # Global variables for character selection and super charge
-playerChar = ""  # Stores the player's character choice
-cpuChar = ""     # Stores the CPU's character choice
-playerStatus = [] # Stores current player status
-cpuStatus = [] # Stores current cpu status
+playerChar = ""  # Stores the player's character choice 
+cpuChar = ""  # Stores the CPU's character choice 
+playerStatus = []  # Stores current player status
+cpuStatus = []  # Stores current cpu status
 superCharge = 0  # Indicates the amount of super charge
 
 # Function to get move names based on player's character, also includes move color in the dictionary
-def moves(char, status = []):
-    if char == "Char 1":
+def moves(char, status=[]):
+    if char == "Sol Badguy":
         moves = {
-            "Volcanic Viper": "lightpink", "Fafnir" : "lightpink", "Burst" : "lightblue",
-            "Gun Flame" : "lightpink", "Bandit Bringer" : "lightpink", "Guard" : "lightgreen"
+            "Volcanic Viper": "lightpink", "Fafnir": "lightpink", "Burst": "lightblue",
+            "Gun Flame": "lightpink", "Bandit Bringer": "lightpink", "Guard": "lightgreen"
         }
-    elif char == "Char 2":
+    elif char == "Goku":
         for x in status:
-            if x == "Super Saiyan" :
-                moves = {}
+            if x == "Super Saiyan":
+                moves = {"Super Ki Blast": "pink", "Super Kamehameha": "pink", "Ki Gathering": "lightblue",
+                         "Ki Blast Barrage": "pink", "Spirit Bomb": "lightgrey", "Instant Transmission": "lightyellow"}
                 break
         else:
             moves = {
-                "Ki Blast" : "lightpink", "Kamehameha" : "lightpink", "Ki Gathering" : "lightblue",
-                "Destructo Disc" : "lightpink", "Spirit Bomb" : "lightgrey", "Instant Transmission" : "lightyellow"
+                "Ki Blast": "lightpink", "Kamehameha": "lightpink", "Ki Gathering": "lightblue",
+                "Destructo Disc": "lightpink", "Spirit Bomb": "lightgrey", "Instant Transmission": "lightyellow"
             }
     else:
         moves = {}  # Default empty moves dictionary
     return moves
 
 # Function to get super move names based on player's character
-def superMoves(playerChar):
-    if playerChar == "Char 1":
-        moves = ["Faultless Defense", "Tyrant Rave", "Heavy Mob Cemetery"]
+def superMoves(playerChar, status):
+    if playerChar == "Sol Badguy":
+        moves = {"Faultless Defense": "green", "Tyrant Rave": "red", "Heavy Mob Cemetery": "red"}
+    elif playerChar == "Goku":
+        moves = {"Transformation": "yellow"}
     else:
-        moves = []  # Default empty super moves list
+        moves = {}  # Default empty super moves dictionary
     return moves
 
 # Function to run move logic, such as calculating damage based on move and accuracy, or giving the character a status effect
-def moveLogic(move, superCharge):
+def moveLogic(move, superCharge, attacker_status, defender_status):
     accuracy = random.randint(0, 100)  # Random accuracy value
     dmg = 0  # Initialize dmg with a default value
+    attacker_status_effects = attacker_status.copy()
+    defender_status_effects = defender_status.copy()
+    move_message = f"{move} logic not coded yet"
 
-    # Determine damage based on move accuracy
+    # Determine damage and effects based on move accuracy
     if move == "Volcanic Viper":
         if accuracy > 20:
             dmg = random.randint(7, 13)
+            move_message = f"causing {dmg} damage!"
         else:
-            dmg = 0
+            move_message = "but it missed!"
     elif move == "Fafnir":
         if accuracy > 70:
             dmg = random.randint(15, 30)
+            move_message = f"causing {dmg} damage!"
         else:
-            dmg = 0
-    return dmg
+            move_message = "but it missed!"
+    elif move == "Burst":
+        defender_status_effects.append("Stunned")
+        attacker_status_effects.append("Accuracy Boost")
+        move_message = "applying Stunned status and gaining Accuracy Boost!"
+    elif move == "Guard":
+        attacker_status_effects.append("Damage Reduction")
+        move_message = "gaining Damage Reduction!"
+    elif move == "Ki Gathering":
+        attacker_status_effects.append("Damage Boost")
+        move_message = "gaining Damage Boost!"
+    elif move == "Spirit Bomb":
+        # Implementing three separate turns logic is omitted for simplicity
+        if "Spirit Bomb Charge" in attacker_status:
+            if attacker_status.count("Spirit Bomb Charge") == 2:
+                dmg = 80
+                attacker_status_effects = [status for status in attacker_status if status != "Spirit Bomb Charge"]
+                move_message = "causing 80 guaranteed damage!"
+            else:
+                attacker_status_effects.append("Spirit Bomb Charge")
+                move_message = "charging Spirit Bomb (second turn)"
+        else:
+            attacker_status_effects.append("Spirit Bomb Charge")
+            move_message = "charging Spirit Bomb (first turn)"
+    elif move == "Instant Transmission":
+        if accuracy > 50:
+            attacker_status_effects.append("Damage Negation")
+            move_message = "dodging all incoming damage!"
+        else:
+            move_message = "but failed to dodge damage!"
+    elif move == "Transformation":
+        attacker_status_effects.append("Super Saiyan")
+        move_message = "transforming into Super Saiyan!"
+    elif move == "Faultless Defense":
+        attacker_status_effects.append("Damage Negation")
+        move_message = "negating all incoming damage!"
+    
+    return dmg, move_message, attacker_status_effects, defender_status_effects
 
 # Class representing the game layout
 class GameLayout:
-    global playerChar
-    global cpuChar
-    global superCharge
-
     def __init__(self, master):
         self.master = master
         self.master.title("Game Layout")
@@ -95,96 +135,133 @@ class GameLayout:
             self.segments.append(segment)
 
         # Buttons for moves
+        self.moves_frame = tk.Frame(self.master, bg="blue")
+        self.moves_frame.grid(row=2, column=0, columnspan=3, pady=20)
         self.create_buttons()
 
     # Method to create buttons for moves and super moves
     def create_buttons(self):
-        self.moves_frame = tk.Frame(self.master, bg="blue")
-        self.moves_frame.grid(row=2, column=0, columnspan=3, pady=20)
-
         buttons_text = moves(playerChar)
-        super_moves_text = superMoves(playerChar)
+        super_moves_text = superMoves(playerChar, playerStatus)
 
         # Create buttons for regular moves
         for i, (text, color) in enumerate(buttons_text.items()):
-            btn = tk.Button(self.moves_frame, text=text, width=20, height=2, bg=color, command=lambda m=text, c=color:[self.super_moves_increment(), self.handle_turn(m, c)])
-            btn.grid(row=i//3, column=i%3, padx=10, pady=5)
+            btn = tk.Button(self.moves_frame, text=text, width=20, height=2, bg=color, command=lambda m=text, c=color: [self.super_moves_increment(), self.handle_turn(m, c)])
+            btn.grid(row=i // 3, column=i % 3, padx=10, pady=5)
 
         self.super_moves_frame = tk.Frame(self.master, bg="lightpink")
         self.super_moves_frame.grid(row=1, column=3, padx=20, pady=20)
 
         # Create buttons for super moves
-        for i, text in enumerate(super_moves_text):
-            btn = tk.Button(self.super_moves_frame, text=text, width=20, height=2, bg="lightgreen")
+        for i, (text, color) in enumerate(super_moves_text.items()):
+            btn = tk.Button(self.super_moves_frame, text=text, width=20, height=2, bg=color, command=lambda m=text: self.handle_super_move(m))
             btn.pack(pady=5)
 
     # Method to handle player turn and move to the next state
     def handle_turn(self, move, color):
+        global playerStatus
+        global cpuStatus
+
         attackMove = color == "lightpink" or color == "red"
-        dmg = moveLogic(move, superCharge)
+        dmg, move_message, new_player_status, new_cpu_status = moveLogic(move, superCharge, playerStatus, cpuStatus)
+        playerStatus = new_player_status
+        cpuStatus = new_cpu_status
         self.decrement_health("right", dmg)
         self.remove_buttons()
         if dmg == 0 and attackMove:
-            self.display_turn_info(f"Player used {move}, it missed!", self.cpu_turn)
-        elif dmg != 0 and attackMove:    
-            self.display_turn_info(f"Player used {move} causing {dmg} damage!", self.cpu_turn)
+            self.display_turn_info(f"Player used {move}, but it missed!", self.cpu_turn)
+        elif dmg != 0 and attackMove:
+            self.display_turn_info(f"Player used {move}, causing {dmg} damage! {move_message}", self.cpu_turn)
         else:
-            self.display_turn_info(f"{move} logic not coded yet", self.cpu_turn)
+            self.display_turn_info(f"Player used {move}, {move_message}", self.cpu_turn)
 
-    # Method to remove move buttons
+    # Method to handle super move usage
+    def handle_super_move(self, move):
+        global superCharge
+        global playerStatus
+        global cpuStatus
+        if superCharge >= 4:
+            superCharge -= 4
+            for i in range(7):
+                if i < superCharge:
+                    self.segments[i].config(bg="yellow")
+                else:
+                    self.segments[i].config(bg="grey")
+            dmg, move_message, new_player_status, new_cpu_status = moveLogic(move, superCharge, playerStatus, cpuStatus)
+            playerStatus = new_player_status
+            cpuStatus = new_cpu_status
+            self.decrement_health("right", dmg)
+            self.remove_buttons()
+            self.display_turn_info(f"Player used Super Move: {move}, causing {dmg} damage! {move_message}", self.cpu_turn)
+        else:
+            self.display_turn_info("Not enough super charge to use this move!", self.cpu_turn)
+
+    # Method to remove buttons and show message
     def remove_buttons(self):
-        self.moves_frame.grid_forget()
+        for widget in self.moves_frame.winfo_children():
+            widget.destroy()
+        self.moves_frame.grid_forget()  # Hide the blue frame
+        if hasattr(self, 'super_moves_frame'):
+            self.super_moves_frame.grid_forget()
 
-    # Method to display turn information and a continue button
-    def display_turn_info(self, message, next_action):
+    def display_turn_info(self, message, next_state_func):
+        # Clear any existing messages and buttons
+        self.clear_message()
+    
+        # Display the new message
         self.info_label = tk.Label(self.master, text=message, bg="lightblue")
-        self.info_label.grid(row=2, column=0, columnspan=3, pady=20)
-        self.continue_button = tk.Button(self.master, text="Continue", command=next_action)
-        self.continue_button.grid(row=3, column=1, pady=10)
+        self.info_label.grid(row=3, column=0, columnspan=3, pady=10)
+    
+        # Create a "Continue" button to proceed to the next state
+        self.continue_button = tk.Button(self.master, text="Continue", command=lambda: [self.clear_message(), next_state_func()])
+        self.continue_button.grid(row=4, column=0, columnspan=3, pady=10)
+    
+    def clear_message(self):
+        # Remove the message label if it exists
+        if hasattr(self, 'info_label'):
+            self.info_label.grid_forget()
+    
+        # Remove the continue button if it exists
+        if hasattr(self, 'continue_button'):
+            self.continue_button.grid_forget()
 
-    # Method to handle CPU turn
+
+    # Method to handle CPU's turn
     def cpu_turn(self):
-        self.info_label.grid_forget()
-        self.continue_button.grid_forget()
-        move = random.choice(list(moves(cpuChar).keys()))
-        attackMove = move in moves(cpuChar) and (moves(cpuChar)[move] == "lightpink" or moves(cpuChar)[move] == "red")
-        dmg = moveLogic(move, superCharge)
-        self.decrement_health("left", dmg)
-        if dmg == 0 and attackMove:
-            self.display_turn_info(f"CPU used {move}, it missed!", self.player_turn)
-        elif dmg != 0 and attackMove:    
-            self.display_turn_info(f"CPU used {move} causing {dmg} damage!", self.player_turn)
-        else:
-            self.display_turn_info(f"{move} logic not coded yet", self.player_turn)
-
-    # Method to handle player turn
-    def player_turn(self):
-        self.info_label.grid_forget()
-        self.continue_button.grid_forget()
-        self.create_buttons()
-
-    # Method to fill super move bar
-    def super_bar_fill(self, segments_filled):
-        for i in range(7):
-            if i < segments_filled:
-                self.segments[i].config(bg="red")
+        global cpuStatus
+        global playerStatus
+        moves_list = list(moves(cpuChar, cpuStatus).keys())
+        if moves_list:
+            move = random.choice(moves_list)
+            dmg, move_message, new_cpu_status, new_player_status = moveLogic(move, superCharge, cpuStatus, playerStatus)
+            
+            cpuStatus = new_cpu_status
+            playerStatus = new_player_status
+            self.decrement_health("left", dmg)
+            if dmg == 0:
+                self.display_turn_info(f"CPU used {move}, but it missed!", self.reset_buttons)
             else:
-                self.segments[i].config(bg="grey")
+                self.display_turn_info(f"CPU used {move}, causing {dmg} damage!", self.reset_buttons)
 
-    # Method to decrement health bar based on character
-    def decrement_health(self, character, value):
-        if character == "left":
-            self.health_left["value"] -= value
-        elif character == "right":
-            self.health_right["value"] -= value
+    # Method to reset buttons for player turn
+    def reset_buttons(self):
+        self.moves_frame = tk.Frame(self.master, bg="blue")
+        self.moves_frame.grid(row=2, column=0, columnspan=3, pady=20)
+        self.create_buttons()  # Recreate buttons
 
-    # Method with super move bar logic
+    # Method to decrement health for left or right character
+    def decrement_health(self, side, amount):
+        if side == "left":
+            self.health_left["value"] = max(self.health_left["value"] - amount, 0)
+        else:
+            self.health_right["value"] = max(self.health_right["value"] - amount, 0)
+
+    # Method to increment super moves
     def super_moves_increment(self):
         global superCharge
-        segments_filled = sum(1 for segment in self.segments if segment.cget("bg") == "red")
-        if segments_filled < 7:
-            self.super_bar_fill(segments_filled + 1)
-        superCharge = segments_filled + 1 if segments_filled < 7 else 7
+        if superCharge < 7:
+            self.segments[superCharge].config(bg="yellow")
+            superCharge += 1
 
 # Function to create the menu layout
 def menuLayout(root):
@@ -220,27 +297,13 @@ def menuLayout(root):
         elif cpuChar != "" and name["bg"] == "blue":
             name["bg"] = "white"
             cpuChar = ""
-        print("player char is " + playerChar)
-        print('cpu char is ' + cpuChar)
 
-    # Add six buttons in the center
-    button1 = tk.Button(button_frame, text=f"Char 1", bg='white', command=lambda: charSelect(button1))
+    # Adds buttons in the center
+    button1 = tk.Button(button_frame, text=f"Sol Badguy", bg='white', command=lambda: charSelect(button1))
     button1.grid(row=1, column=1, padx=10, pady=10)
 
-    button2 = tk.Button(button_frame, text=f"Char 2", bg='white', command=lambda: charSelect(button2))
+    button2 = tk.Button(button_frame, text=f"Goku", bg='white', command=lambda: charSelect(button2))
     button2.grid(row=1, column=2, padx=10, pady=10)
-
-    button3 = tk.Button(button_frame, text=f"Char 3", bg='white', command=lambda: charSelect(button3))
-    button3.grid(row=2, column=1, padx=10, pady=10)
-
-    button4 = tk.Button(button_frame, text=f"Char 4", bg='white', command=lambda: charSelect(button4))
-    button4.grid(row=2, column=2, padx=10, pady=10)
-
-    button5 = tk.Button(button_frame, text=f"Char 5", bg='white', command=lambda: charSelect(button5))
-    button5.grid(row=3, column=1, padx=10, pady=10)
-
-    button6 = tk.Button(button_frame, text=f"Char 6", bg='white', command=lambda: charSelect(button6))
-    button6.grid(row=3, column=2, padx=10, pady=10)
 
     # Make sure the buttons resize appropriately
     for i in range(2):
