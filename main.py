@@ -1,13 +1,16 @@
 import tkinter as tk
 from tkinter import ttk
+#from PIL import Image, ImageTk
 import random
 
 # Global variables for character selection and super charge
 playerChar = ""  # Stores the player's character choice 
 cpuChar = ""  # Stores the CPU's character choice 
-playerStatus = []  # Stores current player status
-cpuStatus = []  # Stores current cpu status
+playerStatus = {}  # Stores current player status and their durations
+cpuStatus = {}  # Stores current cpu status and their durations
 superCharge = 0  # Indicates the amount of super charge
+cpuSuperCharge = 0 # Indicates the super charge of the cpu
+burstCharge = True # Tracks if Sol Badguy is able to use burst
 
 # Function to get move names based on player's character, also includes move color in the dictionary
 def moves(char, status=[]):
@@ -35,70 +38,138 @@ def moves(char, status=[]):
 def superMoves(playerChar, status):
     if playerChar == "Sol Badguy":
         moves = {"Faultless Defense": "green", "Tyrant Rave": "red", "Heavy Mob Cemetery": "red"}
-    elif playerChar == "Goku":
+    elif playerChar == "Goku" and ("Super Saiyan" not in status):
         moves = {"Transformation": "yellow"}
+    elif playerChar == "Goku":
+        moves = {}
     else:
         moves = {}  # Default empty super moves dictionary
     return moves
 
-# Function to run move logic, such as calculating damage based on move and accuracy, or giving the character a status effect
 def moveLogic(move, superCharge, attacker_status, defender_status):
+    global burstCharge
     accuracy = random.randint(0, 100)  # Random accuracy value
     dmg = 0  # Initialize dmg with a default value
     attacker_status_effects = attacker_status.copy()
     defender_status_effects = defender_status.copy()
     move_message = f"{move} logic not coded yet"
 
+    # Move-specific damage ranges and accuracy minimums
+    damage_ranges = {
+        "Volcanic Viper": (15, 25),
+        "Fafnir": (35, 55),
+        "Burst": (0, 0),  # No damage, special effects
+        "Gun Flame": (7, 15),
+        "Bandit Bringer": (12, 18),
+        "Guard": (0, 0),  # No damage, special effects
+        "Ki Blast": (7, 15),
+        "Kamehameha": (25, 45),
+        "Ki Gathering": (0, 0),  # No damage, special effects
+        "Spirit Bomb": (80, 80),  # Special case handled separately
+        "Instant Transmission": (0, 0),  # No damage, special effects
+        "Transformation": (0, 0),  # No damage, special effects
+        "Faultless Defense": (0, 0),  # No damage, special effects
+        "Super Ki Blast": (20, 40),
+        "Super Kamehameha": (30, 60),
+        "Ki Blast Barrage": (15, 50),
+        "Destructo Disc": (30, 35),
+        "Tyrant Rave": (40, 80),  
+        "Heavy Mob Cemetery": (60, 100),  
+        "Transformation": (0, 0)  # No damage, special effects
+    }
+
+    accuracy_minimums = {
+        "Volcanic Viper": 10,
+        "Fafnir": 60,
+        "Burst": 0,  # Not based on accuracy (Status move)
+        "Gun Flame": 0, # Not based on accuracy (Garunteed hit move)
+        "Bandit Bringer": 5,
+        "Guard": 0,  # Not based on accuracy (Status move)
+        "Ki Blast": 0, # Not based on accuracy (Garunteed hit move)
+        "Kamehameha": 60,
+        "Ki Gathering": 0,  # Not based on accuracy (Status move)
+        "Spirit Bomb": 0,  # Not based on accuracy (Status move)
+        "Instant Transmission": 50, # Accuracy based status move
+        "Transformation": 0,  # Not based on accuracy (Status move)
+        "Faultless Defense": 0,  # Not based on accuracy (Status move)
+        "Super Ki Blast": 40,
+        "Super Kamehameha": 60,
+        "Ki Blast Barrage": 20,
+        "Destructo Disc": 50,
+        "Tyrant Rave": 0,  # Not based on accuracy (Garunteed hit move)
+        "Heavy Mob Cemetery": 50  
+    }
+
     # Determine damage and effects based on move accuracy
-    if move == "Volcanic Viper":
-        if accuracy > 20:
-            dmg = random.randint(7, 13)
-            move_message = f"causing {dmg} damage!"
+    if move in accuracy_minimums:
+        min_accuracy = accuracy_minimums[move]
+        if accuracy > min_accuracy:
+            if move in damage_ranges:
+                dmg_range = damage_ranges[move]
+                if move == "Spirit Bomb":
+                    # Special handling for Spirit Bomb
+                    if "Spirit Bomb Charge" in attacker_status:
+                        if attacker_status["Spirit Bomb Charge"] == 1:
+                            dmg = dmg_range[0]  # Spirit Bomb does fixed damage
+                            del attacker_status_effects["Spirit Bomb Charge"]
+                            move_message = "causing 80 damage!!!!"
+                        elif attacker_status["Spirit Bomb Charge"] == 2:
+                            move_message = "charging Spirit Bomb (second turn)"
+                    else:
+                        attacker_status_effects["Spirit Bomb Charge"] = 3
+                        move_message = "charging Spirit Bomb (first turn)"
+                else:
+                    dmg = random.randint(dmg_range[0], dmg_range[1])
+                    move_message = f"causing {dmg} damage!"
+            else:
+                move_message = "no damage range defined for this move"
         else:
             move_message = "but it missed!"
-    elif move == "Fafnir":
-        if accuracy > 70:
-            dmg = random.randint(15, 30)
-            move_message = f"causing {dmg} damage!"
-        else:
-            move_message = "but it missed!"
-    elif move == "Burst":
-        defender_status_effects.append("Stunned")
-        attacker_status_effects.append("Accuracy Boost")
+    else:
+        move_message = "move not recognized"
+    
+    if move == "Burst":
+        defender_status_effects["Stunned"] = 1
+        attacker_status_effects["Accuracy Boost"] = 3
         move_message = "applying Stunned status and gaining Accuracy Boost!"
+        burstCharge = False
     elif move == "Guard":
-        attacker_status_effects.append("Damage Reduction")
+        attacker_status_effects["Damage Reduction"] = 1
         move_message = "gaining Damage Reduction!"
     elif move == "Ki Gathering":
-        attacker_status_effects.append("Damage Boost")
+        attacker_status_effects["Damage Boost"] = 3
         move_message = "gaining Damage Boost!"
-    elif move == "Spirit Bomb":
-        # Implementing three separate turns logic is omitted for simplicity
-        if "Spirit Bomb Charge" in attacker_status:
-            if attacker_status.count("Spirit Bomb Charge") == 2:
-                dmg = 80
-                attacker_status_effects = [status for status in attacker_status if status != "Spirit Bomb Charge"]
-                move_message = "causing 80 guaranteed damage!"
-            else:
-                attacker_status_effects.append("Spirit Bomb Charge")
-                move_message = "charging Spirit Bomb (second turn)"
-        else:
-            attacker_status_effects.append("Spirit Bomb Charge")
-            move_message = "charging Spirit Bomb (first turn)"
     elif move == "Instant Transmission":
         if accuracy > 50:
-            attacker_status_effects.append("Damage Negation")
+            attacker_status_effects["Damage Negation"] = 1
             move_message = "dodging all incoming damage!"
         else:
             move_message = "but failed to dodge damage!"
     elif move == "Transformation":
-        attacker_status_effects.append("Super Saiyan")
+        attacker_status_effects["Super Saiyan"] = float('inf')
         move_message = "transforming into Super Saiyan!"
     elif move == "Faultless Defense":
-        attacker_status_effects.append("Damage Negation")
+        attacker_status_effects["Damage Negation"] = 1
         move_message = "negating all incoming damage!"
+
+    if "Damage Boost" in attacker_status_effects:
+        dmg = dmg * 1.5
+    if "Damage Reduction" in defender_status_effects:
+        dmg = dmg * 0.5
+    if "Damage Negation" in defender_status_effects:
+        dmg = 0
     
     return dmg, move_message, attacker_status_effects, defender_status_effects
+# Function to update status effects and their durations
+def update_status_effects(status_effects):
+    to_remove = []
+    for effect in list(status_effects.keys()):
+        if status_effects[effect] > 0:
+            status_effects[effect] -= 1
+        if status_effects[effect] == 0:
+            to_remove.append(effect)
+    for effect in to_remove:
+        del status_effects[effect]
 
 # Class representing the game layout
 class GameLayout:
@@ -141,12 +212,16 @@ class GameLayout:
 
     # Method to create buttons for moves and super moves
     def create_buttons(self):
-        buttons_text = moves(playerChar)
+        global burstCharge
+        buttons_text = moves(playerChar, playerStatus)
         super_moves_text = superMoves(playerChar, playerStatus)
 
         # Create buttons for regular moves
         for i, (text, color) in enumerate(buttons_text.items()):
-            btn = tk.Button(self.moves_frame, text=text, width=20, height=2, bg=color, command=lambda m=text, c=color: [self.super_moves_increment(), self.handle_turn(m, c)])
+            if text == "Burst" and burstCharge == False:
+                btn = tk.Button(self.moves_frame, text=text, width=20, height=2, bg="grey", state=tk.DISABLED)
+            else:
+                btn = tk.Button(self.moves_frame, text=text, width=20, height=2, bg=color, command=lambda m=text, c=color: [self.super_moves_increment(), self.handle_turn(m, c)])
             btn.grid(row=i // 3, column=i % 3, padx=10, pady=5)
 
         self.super_moves_frame = tk.Frame(self.master, bg="lightpink")
@@ -161,19 +236,22 @@ class GameLayout:
     def handle_turn(self, move, color):
         global playerStatus
         global cpuStatus
-
-        attackMove = color == "lightpink" or color == "red"
         dmg, move_message, new_player_status, new_cpu_status = moveLogic(move, superCharge, playerStatus, cpuStatus)
         playerStatus = new_player_status
         cpuStatus = new_cpu_status
         self.decrement_health("right", dmg)
+        update_status_effects(playerStatus)
         self.remove_buttons()
-        if dmg == 0 and attackMove:
-            self.display_turn_info(f"Player used {move}, but it missed!", self.cpu_turn)
-        elif dmg != 0 and attackMove:
-            self.display_turn_info(f"Player used {move}, causing {dmg} damage! {move_message}", self.cpu_turn)
+        print(playerStatus)
+        print(cpuStatus)
+        if "Stunned" in cpuStatus:
+            self.display_turn_info(f"Player used {move}, {move_message}", self.reset_buttons)
+            cpuStatus["Stunned"] -= 1
+            if cpuStatus["Stunned"] == 0:
+                cpuStatus.pop("Stunned")
         else:
             self.display_turn_info(f"Player used {move}, {move_message}", self.cpu_turn)
+
 
     # Method to handle super move usage
     def handle_super_move(self, move):
@@ -192,7 +270,7 @@ class GameLayout:
             cpuStatus = new_cpu_status
             self.decrement_health("right", dmg)
             self.remove_buttons()
-            self.display_turn_info(f"Player used Super Move: {move}, causing {dmg} damage! {move_message}", self.cpu_turn)
+            self.display_turn_info(f"Player used Super Move: {move}, {move_message}", self.cpu_turn)
         else:
             self.display_turn_info("Not enough super charge to use this move!", self.cpu_turn)
 
@@ -228,20 +306,46 @@ class GameLayout:
 
     # Method to handle CPU's turn
     def cpu_turn(self):
+        moveType = 0
         global cpuStatus
         global playerStatus
+        global cpuSuperCharge
+        global burstCharge
+        update_status_effects(cpuStatus)
         moves_list = list(moves(cpuChar, cpuStatus).keys())
+        super_moves_list = list(superMoves(cpuChar, cpuStatus).keys())
+        if burstCharge == False and "Burst" in moves_list:
+            moves_list.remove("Burst")
         if moves_list:
-            move = random.choice(moves_list)
+            moveTypeChoice = random.randint(0, 2)
+            if cpuSuperCharge < 4:
+                move = random.choice(moves_list)
+                moveType = 1
+            elif cpuSuperCharge >= 4 and cpuChar == "Goku" and "Super Saiyan" not in cpuStatus:
+                move = random.choice(super_moves_list)
+                moveType = 2
+            elif cpuSuperCharge >= 4 and moveTypeChoice == 2 and "Super Saiyan" not in cpuStatus:
+                move = random.choice(super_moves_list)
+                moveType = 0
+            else:
+                move = random.choice(moves_list)
+                moveType = 1
             dmg, move_message, new_cpu_status, new_player_status = moveLogic(move, superCharge, cpuStatus, playerStatus)
             
             cpuStatus = new_cpu_status
             playerStatus = new_player_status
             self.decrement_health("left", dmg)
-            if dmg == 0:
-                self.display_turn_info(f"CPU used {move}, but it missed!", self.reset_buttons)
+            if moveType == 1: 
+                cpuSuperCharge += 1
+            elif moveType == 2:
+                cpuSuperCharge -= 4
+            if "Stunned" in playerStatus:
+                self.display_turn_info(f"CPU used {move}, {move_message}", self.cpu_turn)
+                playerStatus["Stunned"] -= 1
+                if playerStatus["Stunned"] == 0:
+                    playerStatus.pop("Stunned")
             else:
-                self.display_turn_info(f"CPU used {move}, causing {dmg} damage!", self.reset_buttons)
+                self.display_turn_info(f"CPU used {move}, {move_message}", self.reset_buttons)
 
     # Method to reset buttons for player turn
     def reset_buttons(self):
@@ -253,15 +357,47 @@ class GameLayout:
     def decrement_health(self, side, amount):
         if side == "left":
             self.health_left["value"] = max(self.health_left["value"] - amount, 0)
+            if self.health_left["value"] <= 0:
+                GameLayout.show_result_window("lose", self.master)
         else:
             self.health_right["value"] = max(self.health_right["value"] - amount, 0)
-
+            if self.health_right["value"] <= 0:
+                GameLayout.show_result_window("win", self.master)
+    
     # Method to increment super moves
     def super_moves_increment(self):
         global superCharge
         if superCharge < 7:
             self.segments[superCharge].config(bg="yellow")
             superCharge += 1
+    @staticmethod
+    def show_result_window(result, root):
+        # Create a new window for the result
+        result_window = tk.Toplevel(root)
+        result_window.title("Game Over")
+
+        # Set the size of the window
+        result_window.geometry("600x400")
+        result_window.config(bg="lightblue")
+
+        # Load and display the appropriate image and message
+        if result == "win":
+            img = tk.PhotoImage(file="celebration.png") 
+            message = "Congratulations! You have won the game!"
+        else:
+            img = tk.PhotoImage(file="defeat.png") 
+            message = "Sorry, you lost the game. Better luck next time!"
+
+        img_label = tk.Label(result_window, image=img, bg="lightblue")
+        img_label.image = img 
+        img_label.pack(pady=20)
+
+        message_label = tk.Label(result_window, text=message, font=('Helvetica', 16), bg="lightblue")
+        message_label.pack(pady=10)
+
+        # Add a button to close the result window
+        close_button = tk.Button(result_window, text="Close", command=result_window.destroy)
+        close_button.pack(pady=20)
 
 # Function to create the menu layout
 def menuLayout(root):
