@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
-#from PIL import Image, ImageTk
+from tkinter import *
+from PIL import Image, ImageTk
 import random
 
 # Global variables for character selection and super charge
@@ -11,6 +12,8 @@ cpuStatus = {}  # Stores current cpu status and their durations
 superCharge = 0  # Indicates the amount of super charge
 cpuSuperCharge = 0 # Indicates the super charge of the cpu
 burstCharge = True # Tracks if Sol Badguy is able to use burst
+image_change = False  # Tracks if an image change is required
+
 
 # Function to get move names based on player's character, also includes move color in the dictionary
 def moves(char, status=[]):
@@ -48,11 +51,13 @@ def superMoves(playerChar, status):
 
 def moveLogic(move, superCharge, attacker_status, defender_status):
     global burstCharge
+    global image_change
     accuracy = random.randint(0, 100)  # Random accuracy value
     dmg = 0  # Initialize dmg with a default value
     attacker_status_effects = attacker_status.copy()
     defender_status_effects = defender_status.copy()
     move_message = f"{move} logic not coded yet"
+    
 
     # Move-specific damage ranges and accuracy minimums
     damage_ranges = {
@@ -151,6 +156,10 @@ def moveLogic(move, superCharge, attacker_status, defender_status):
     elif move == "Faultless Defense":
         attacker_status_effects["Damage Negation"] = 1
         move_message = "negating all incoming damage!"
+    elif move == "Transformation":
+        attacker_status_effects["Super Saiyan"] = float('inf')
+        move_message = "transforming into Super Saiyan!"
+        image_change = True  # Indicate image change
 
     if "Damage Boost" in attacker_status_effects:
         dmg = dmg * 1.5
@@ -176,12 +185,16 @@ class GameLayout:
     def __init__(self, master):
         self.master = master
         self.master.title("Game Layout")
-        self.master.geometry("800x400")
+        self.master.geometry("800x425")
         self.master.config(bg="lightblue")
 
-        # Character placeholders
-        self.character_left = tk.Label(master, bg="green", width=20, height=10)
-        self.character_right = tk.Label(master, bg="green", width=20, height=10)
+        # Load and set the images for characters
+        self.character_left_image = self.get_character_image(playerChar, playerStatus)
+        self.character_right_image = self.get_character_image(cpuChar, cpuStatus)
+
+        # Character placeholders with images
+        self.character_left = tk.Label(master, image=self.character_left_image, bg="lightblue", width=200, height=200)
+        self.character_right = tk.Label(master, image=self.character_right_image, bg="lightblue", width=200, height=200)
         self.character_left.grid(row=1, column=0, padx=20, pady=20)
         self.character_right.grid(row=1, column=2, padx=20, pady=20)
 
@@ -232,15 +245,46 @@ class GameLayout:
             btn = tk.Button(self.super_moves_frame, text=text, width=20, height=2, bg=color, command=lambda m=text: self.handle_super_move(m))
             btn.pack(pady=5)
 
+        
+    def update_character_images(self):
+        self.character_left_image = self.get_character_image(playerChar, playerStatus)
+        self.character_right_image = self.get_character_image(cpuChar, cpuStatus)
+        self.character_left.config(image=self.character_left_image)
+        self.character_right.config(image=self.character_right_image)
+
+         # Method to load character images
+    def get_character_image(self, char, status):
+        if char == "Sol Badguy":
+            image_path = "BackroadBrawl/Sol_Badguy.png"
+        elif char == "Goku":
+            if "Super Saiyan" in status:
+                image_path = "BackroadBrawl/Goku_SSJ.png"
+            else:
+                image_path = "BackroadBrawl/Goku.png"
+        else:
+            return None
+        
+        img = Image.open(image_path)
+        img = img.resize((200, 200), Image.Resampling.LANCZOS)
+        return ImageTk.PhotoImage(img)
+
+
     # Method to handle player turn and move to the next state
     def handle_turn(self, move, color):
         global playerStatus
         global cpuStatus
+        global image_change
+        update_status_effects(playerStatus)
         dmg, move_message, new_player_status, new_cpu_status = moveLogic(move, superCharge, playerStatus, cpuStatus)
         playerStatus = new_player_status
         cpuStatus = new_cpu_status
+
+        if image_change:
+            self.update_character_images()  # Refresh character images
+            image_change = False  # Reset the flag
+
         self.decrement_health("right", dmg)
-        update_status_effects(playerStatus)
+        
         self.remove_buttons()
         print(playerStatus)
         print(cpuStatus)
@@ -370,10 +414,13 @@ class GameLayout:
         if superCharge < 7:
             self.segments[superCharge].config(bg="yellow")
             superCharge += 1
+
     @staticmethod
     def show_result_window(result, root):
+        for widget in root.winfo_children():
+            widget.destroy()
         # Create a new window for the result
-        result_window = tk.Toplevel(root)
+        result_window = root
         result_window.title("Game Over")
 
         # Set the size of the window
@@ -382,22 +429,31 @@ class GameLayout:
 
         # Load and display the appropriate image and message
         if result == "win":
-            img = tk.PhotoImage(file="celebration.png") 
+            img = Image.open("BackroadBrawl/celebration.png")
             message = "Congratulations! You have won the game!"
         else:
-            img = tk.PhotoImage(file="defeat.png") 
+            img = Image.open("BackroadBrawl/defeat.png")
             message = "Sorry, you lost the game. Better luck next time!"
 
+        # Resize the image to fit the window
+        img = img.resize((600, 300), Image.Resampling.LANCZOS)
+        img = ImageTk.PhotoImage(img)
+
         img_label = tk.Label(result_window, image=img, bg="lightblue")
-        img_label.image = img 
+        img_label.image = img  # Keep a reference to avoid garbage collection
         img_label.pack(pady=20)
 
         message_label = tk.Label(result_window, text=message, font=('Helvetica', 16), bg="lightblue")
         message_label.pack(pady=10)
 
-        # Add a button to close the result window
-        close_button = tk.Button(result_window, text="Close", command=result_window.destroy)
+        # Add a button to close the result window and the main application
+        def close_all():
+            root.quit()  # Stops the Tkinter event loop
+            root.destroy()  # Properly destroys the main window and all child windows
+
+        close_button = tk.Button(result_window, text="Close", command=close_all)
         close_button.pack(pady=20)
+
 
 # Function to create the menu layout
 def menuLayout(root):
